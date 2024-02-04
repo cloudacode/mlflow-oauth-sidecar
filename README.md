@@ -1,4 +1,4 @@
-# mlflow-oauth
+# mlflow-oauth-sidecar
 How to authentication in MLflow using an external IDP like Google, Github
 
 ## Background

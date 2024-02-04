@@ -1,0 +1,108 @@
+# piggyback on
+# https://mlflow.org/docs/latest/tracking/tutorials/remote-server.html
+version: '3.7'
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mlflowdb
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-U", "user", "-d", "mlflowdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # MinIO server
+  minio:
+    image: minio/minio
+    container_name: minio
+    expose:
+      - "9000"
+    ports:
+      - "9000:9000"
+      # MinIO Console is available at http://localhost:9001
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
+    healthcheck:
+      test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    command: server /data --console-address ":9001"
+  minio-create-bucket:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      bash -c "
+      mc alias set minio http://minio:9000 minio_user minio_password &&
+      if ! mc ls minio | grep --quiet bucket; then
+        mc mb minio/bucket
+      else
+        echo 'bucket already exists'
+      fi
+      "
+
+  # MLflow server
+  mlflow:
+    depends_on:
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    image: cloudacode/mlflow:2.10.0
+    container_name: mlflow
+    expose:
+      - "5000"
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://user:password@postgres:5432/mlflowdb
+      MLFLOW_ARTIFACTS_DESTINATION: s3://bucket
+      MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"
+      MLFLOW_S3_IGNORE_TLS: "true"
+      AWS_ACCESS_KEY_ID: "minio_user"
+      AWS_SECRET_ACCESS_KEY: "minio_password"
+    command: mlflow server --host 0.0.0.0 --port 5000
+
+  # OAuth2-proxy
+  oauth2-proxy:
+    depends_on:
+      - mlflow
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.1.3
+    container_name: oauth2-proxy
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+    environment:
+      OAUTH2_PROXY_PROVIDER: google
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://accounts.google.com
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_CLIENT_ID: $OAUTH2_PROXY_CLIENT_ID
+      OAUTH2_PROXY_CLIENT_SECRET: $OAUTH2_PROXY_CLIENT_SECRET
+      OAUTH2_PROXY_COOKIE_SECRET: $OAUTH2_PROXY_COOKIE_SECRET
+      OAUTH2_PROXY_COOKIE_EXPIRE: 3h
+      OAUTH2_PROXY_COOKIE_REFRESH: 1h
+      OAUTH2_PROXY_UPSTREAMS: http://mlflow:5000
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:3000
+      OAUTH2_PROXY_REDIRECT_URL: http://127.0.0.1:3000/oauth2/callback
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_SKIP_JWT_BEARER_TOKENS: "true"
+      OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      OAUTH2_PROXY_PASS_USER_HEADERS: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"

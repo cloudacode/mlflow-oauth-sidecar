@@ -32,9 +32,7 @@ docker-compose up -d
 
 It might takes a couple of minutes to run the all containers. If you get any error messages, you should check the logs in MLflow and Oauth2-proxy.
 
-Once everything is up, you can access [127.0.0.1:3000](http://127.0.0.1:3000) to login MLflow UI with your email.
-
-Once the tracking server is running, you can log runs to the tracking server.
+Once everything is up, you can access [127.0.0.1:3000](http://127.0.0.1:3000) to login MLflow UI with your email. Also, you can log runs to the tracking server.
 
 Your Bearer token can be retrieved from the browser(Chrome: Developer Tools > Network tab > Response Headers).
 

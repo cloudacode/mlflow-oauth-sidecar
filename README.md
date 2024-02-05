@@ -16,7 +16,7 @@ Using oauth2-proxy as a sidecar for MLflow workload that provides authentication
 
 ## Implementation
 
-In this [compleate example](./docker-compose.yaml), the docker-compose sets up essential MLflow components in your environment. Additionally, it spawn an oauth2-proxy to facilitate authentication with favorite external Identity Provider (IdP).
+In this [complete example](./docker-compose.yaml), the docker-compose sets up essential MLflow components in your environment. Additionally, it spawn an oauth2-proxy to facilitate authentication with favorite external Identity Provider (IdP).
 
 The example only demonstrates authentication with Google, but you have the flexibility to choose any other external IdPs according to your preferences. For additional details, please refer to the [oauth2-proxy documentation](https://oauth2-proxy.github.io/oauth2-proxy/configuration/oauth_provider)
 
